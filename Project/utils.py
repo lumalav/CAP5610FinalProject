@@ -1,5 +1,46 @@
 #drawing the court
-from matplotlib.patches import Circle, Rectangle, Arc; import numpy as np; import matplotlib.pyplot as plt
+from matplotlib.patches import Circle, Rectangle, Arc; import numpy as np; import matplotlib.pyplot as plt; import pandas as pd;
+
+def engineer_features_and_write_file(data):
+    offensive_game_scores = []
+    for _, group in data.groupby('game_id'):
+        points_attempted_2 = 0 
+        points_made_2 = 0
+        points_made_3 = 0
+        points_attempted_3 = 0
+        points = 0
+        fga = 0
+        fg = 0
+        offensive_game_score = 0
+        for _, group2 in group.groupby('game_event_id'):
+            fga += 1
+            if group2['shot_type'].iloc[0] == '2PT Field Goal':
+                points_attempted_2 += 1
+                if group2['shot_made_flag'].iloc[0] == 1:
+                    points_made_2 +=1
+                    fg += 1
+                    points += 2
+            else:
+                points_attempted_3 += 1
+                if group2['shot_made_flag'].iloc[0] == 1:
+                    points_made_3 += 1
+                    fg += 1
+                    points += 3
+            offensive_game_score = points + (fg) - (fga)
+            if offensive_game_score < 0:
+                offensive_game_score = 0
+            offensive_game_scores.append(offensive_game_score)
+    data['efficiency'] = offensive_game_scores
+    data['efficiency_normalized'] = data['efficiency'] / data['efficiency'].max()
+    data.game_date = pd.to_datetime(data.game_date)
+
+    data['home_game'] = data.matchup.apply(lambda x: 1 if 'vs.' in x else 0)
+    data['shot_zone_area2']=data['shot_zone_area'].astype('category').cat.codes
+    # Create features for shot angle and distance from hoop
+    data['angle'] = np.degrees(np.arctan(data['loc_y'] / data['loc_x']))
+    data['distance'] = np.sqrt(np.power(data['loc_x'], 2) + np.power(data['loc_y'], 2))
+    # Note that distance from hoop is based on the position values and so does not correspond to a unit
+    data.to_csv('data_engineered.csv', index=False)
 
 def draw_court(ax=None, color='black', lw=2, outer_lines=False):
     """
@@ -78,7 +119,6 @@ def generate_correlations(data, test):
     Generates the file with all the correlations between the original data and the test data 
     preserving the date to avoid data leakage
     """
-    
     test.sort_values(by=['game_date'], inplace=True, ascending=True)
 
     shot_made_corr_df = pd.DataFrame()
@@ -87,3 +127,34 @@ def generate_correlations(data, test):
         shot_made_corr_df = shot_made_corr_df.append(data[data['game_date'] < test['game_date'][test_idx]].corr()['shot_made_flag'], ignore_index=True)
 
     shot_made_corr_df.to_csv('shot_made_correlations.csv', index=False)
+
+def draw_efficiency_pdf_cdf_until_date(data, test, date='01/01/2000'):
+    """
+    Draws the pdf and the cdf of the player's efficiency until that particular date
+    """
+    min_date = data['game_date'].min()
+    max_date = data['game_date'].max()
+    date = pd.to_datetime(date)
+
+    if date < min_date:
+        print('WARNING: the minimum game recorded is: ' + str(min_date))
+        date = min_date
+    if pd.to_datetime(date) > max_date:
+        print('WARNING: the maximum game recorded is: ' + str(max_date))
+        date = max_date
+
+    subset = data.loc[data['game_date'] <= date][['efficiency', 'efficiency_normalized']]
+    group = subset.groupby('efficiency')['efficiency'].agg('count').pipe(pd.DataFrame).rename(columns = {'efficiency': 'frequency'})
+
+    # PDF
+    group['pdf'] = group['frequency'] / sum(group['frequency'])
+
+    # CDF
+    group['cdf'] = group['pdf'].cumsum()
+    group = group.reset_index()
+    group.plot.bar(x = 'efficiency', y = ['pdf', 'cdf'], grid = True, title='PDF and CDF for Efficiency until ' + str(date.strftime('%Y-%m-%d')))
+
+    #cdf using the normalized efficiency
+    subset['cdf'] = subset[['efficiency_normalized']].rank(method = 'average', pct = True)
+    # Sort and plot
+    subset.sort_values('efficiency_normalized').plot(x = 'efficiency_normalized', y = 'cdf', grid = True, title='CDF for Efficiency until ' + str(date.strftime('%Y-%m-%d')))
