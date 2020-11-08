@@ -33,6 +33,9 @@ def engineer_features_and_write_file(data):
     data['efficiency'] = offensive_game_scores
     data['efficiency_normalized'] = data['efficiency'] / data['efficiency'].max()
     data.game_date = pd.to_datetime(data.game_date)
+    data['action_type2']= data['action_type'].astype('category').cat.codes
+    data['combined_shot_type2']= data['combined_shot_type'].astype('category').cat.codes
+    data['opponent2']=data['opponent'].astype('category').cat.codes
 
     data['home_game'] = data.matchup.apply(lambda x: 1 if 'vs.' in x else 0)
     data['shot_zone_area2']=data['shot_zone_area'].astype('category').cat.codes
