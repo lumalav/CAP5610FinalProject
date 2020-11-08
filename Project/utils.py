@@ -162,7 +162,7 @@ def draw_efficiency_pdf_cdf_until_date(data, test, date='01/01/2000'):
     # Sort and plot
     subset.sort_values('efficiency_normalized').plot(x = 'efficiency_normalized', y = 'cdf', grid = True, title='CDF for Efficiency until ' + str(date.strftime('%Y-%m-%d')))
 
-def draw_exploratory_data_charts(data, test):
+def draw_exploratory_data_charts(data, test, chosen_features):
     #A
     groups = data[['action_type','shot_type','shot_made_flag']].groupby(['action_type','shot_type'], as_index=False).mean()
 
@@ -261,9 +261,7 @@ def draw_exploratory_data_charts(data, test):
     #C
     # use in case correlations need to be regenerated
     # utils.generate_correlations(data, test)
-    chosen_features = ['shot_distance', 'period', 'home_game', 'shot_zone_area2', 'playoffs', 'time_remaining_label2', 'efficiency_normalized', 'action_type2', 'combined_shot_type2', 'opponent2']
-
-    correlations = pd.read_csv('shot_made_correlations.csv')[chosen_features].plot.line()
+    pd.read_csv('shot_made_correlations.csv')[chosen_features].plot.line()
 
     plt.title('Correlations with shot made through time', color='black')
     plt.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
