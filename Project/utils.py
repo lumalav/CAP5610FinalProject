@@ -1,5 +1,6 @@
 #drawing the court
-from matplotlib.patches import Circle, Rectangle, Arc; import numpy as np; import matplotlib.pyplot as plt; import pandas as pd;
+from matplotlib.patches import Circle, Rectangle, Arc; import numpy as np; import matplotlib.pyplot as plt; import pandas as pd; import math
+from sklearn.cluster import DBSCAN; from sklearn.preprocessing import StandardScaler;
 
 def engineer_features_and_write_file(data):
     offensive_game_scores = []
@@ -30,6 +31,7 @@ def engineer_features_and_write_file(data):
             if offensive_game_score < 0:
                 offensive_game_score = 0
             offensive_game_scores.append(offensive_game_score)
+
     data['efficiency'] = offensive_game_scores
     data['efficiency_normalized'] = data['efficiency'] / data['efficiency'].max()
     data.game_date = pd.to_datetime(data.game_date)
@@ -43,7 +45,29 @@ def engineer_features_and_write_file(data):
     data['angle'] = np.degrees(np.arctan(data['loc_y'] / data['loc_x']))
     data['distance'] = np.sqrt(np.power(data['loc_x'], 2) + np.power(data['loc_y'], 2))
     # Note that distance from hoop is based on the position values and so does not correspond to a unit
+
+    data['distance_traveled'] = data.apply(lambda row: __distance_from_LA(row), axis=1)
+
+    data['right_of_net'] = data.loc_x.apply(lambda x: 1 if x <= 0 else 0)
     data.to_csv('data_engineered.csv', index=False)
+
+def __distance_from_LA(row):
+    lat = row['lat']
+    lon = row['lon']
+    home_lat = 34.00
+    home_lon = -118.218
+    
+    radius = 6371
+    
+    dlat = math.radians(lat - home_lat)
+    dlon = math.radians(lon - home_lon)
+    a = (math.sin(dlat / 2) * math.sin(dlat / 2) +
+         math.cos(math.radians(home_lat)) * math.cos(math.radians(lat)) *
+         math.sin(dlon / 2) * math.sin(dlon / 2))
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    d = radius * c
+
+    return d
 
 def draw_court(ax=None, color='black', lw=2, outer_lines=False):
     """
@@ -260,7 +284,7 @@ def draw_exploratory_data_charts(data, test, chosen_features):
 
     #C
     # use in case correlations need to be regenerated
-    # utils.generate_correlations(data, test)
+    # generate_correlations(data, test)
     pd.read_csv('shot_made_correlations.csv')[chosen_features].plot.line()
 
     plt.title('Correlations with shot made through time', color='black')
@@ -269,3 +293,24 @@ def draw_exploratory_data_charts(data, test, chosen_features):
 
     #D
     draw_efficiency_pdf_cdf_until_date(data, test, '05/05/1997')
+
+def db_scan(data):
+    # Perform DBSCAN clustering
+    X = data[['loc_x', 'loc_y']]
+    X = StandardScaler().fit_transform(X)
+    db = DBSCAN(eps=0.07, min_samples=50).fit(X)
+    labels = db.labels_
+    data["cluster"] = labels
+    #chart
+    plt.figure(figsize=(12,11))
+    # plt.scatter(data.loc_x, data.loc_y, c=np.where((data['shot_made_flag'] == 1), 'g', 'r'))
+    plt.scatter(data.loc_x, data.loc_y, c=data.cluster)
+    draw_court()
+    # Adjust plot limits to just fit in half court
+    plt.xlim(-250,250)
+    # Descending values along th y axis from bottom to top
+    # in order to place the hoop by the top of plot
+    plt.ylim(422.5, -47.5)
+    # get rid of axis tick labels
+    # plt.tick_params(labelbottom=False, labelleft=False)
+    plt.show();
