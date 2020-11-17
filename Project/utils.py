@@ -9,38 +9,24 @@ from sklearn.preprocessing import StandardScaler
 
 
 def engineer_features_and_write_file(data):
-    offensive_game_scores = []
+    two_pt_attempted = []
+    three_pt_attempted = []
+    pts_attempted = []
     for _, group in data.groupby('game_id'):
         points_attempted_2 = 0
-        points_made_2 = 0
-        points_made_3 = 0
         points_attempted_3 = 0
-        points = 0
-        fga = 0
-        fg = 0
-        offensive_game_score = 0
         for _, group2 in group.groupby('game_event_id'):
-            fga += 1
             if group2['shot_type'].iloc[0] == '2PT Field Goal':
                 points_attempted_2 += 1
-                if group2['shot_made_flag'].iloc[0] == 1:
-                    points_made_2 += 1
-                    fg += 1
-                    points += 2
             else:
                 points_attempted_3 += 1
-                if group2['shot_made_flag'].iloc[0] == 1:
-                    points_made_3 += 1
-                    fg += 1
-                    points += 3
-            offensive_game_score = points + (fg) - (fga)
-            if offensive_game_score < 0:
-                offensive_game_score = 0
-            offensive_game_scores.append(offensive_game_score)
+            two_pt_attempted.append(points_attempted_2)
+            three_pt_attempted.append(points_attempted_3)
+            pts_attempted.append(points_attempted_2 + points_attempted_3)
 
-    data['efficiency'] = offensive_game_scores
-    data['efficiency_normalized'] = data['efficiency'] / \
-        data['efficiency'].max()
+    data['two_pt_attempted'] = two_pt_attempted
+    data['three_pt_attempted'] = three_pt_attempted
+    data['pts_attempted'] = pts_attempted
     data.game_date = pd.to_datetime(data.game_date)
     data['action_type2'] = data['action_type'].astype('category').cat.codes
     data['combined_shot_type2'] = data['combined_shot_type'].astype(
