@@ -7,7 +7,6 @@ import math
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 
-
 def engineer_features_and_write_file(data):
     two_pt_attempted = []
     three_pt_attempted = []
@@ -158,9 +157,9 @@ def generate_correlations(data, test):
     shot_made_corr_df.to_csv('shot_made_correlations.csv', index=False)
 
 
-def draw_efficiency_pdf_cdf_until_date(data, test, date='01/01/2000'):
+def draw_pts_attempted_pdf_cdf_until_date(data, test, date='01/01/2000'):
     """
-    Draws the pdf and the cdf of the player's efficiency until that particular date
+    Draws the pdf and the cdf of the player's pts_attempted until that particular date
     """
     min_date = data['game_date'].min()
     max_date = data['game_date'].max()
@@ -174,9 +173,9 @@ def draw_efficiency_pdf_cdf_until_date(data, test, date='01/01/2000'):
         date = max_date
 
     subset = data.loc[data['game_date'] <= date][[
-        'efficiency', 'efficiency_normalized']]
-    group = subset.groupby('efficiency')['efficiency'].agg('count').pipe(
-        pd.DataFrame).rename(columns={'efficiency': 'frequency'})
+        'pts_attempted']]
+    group = subset.groupby('pts_attempted')['pts_attempted'].agg('count').pipe(
+        pd.DataFrame).rename(columns={'pts_attempted': 'frequency'})
 
     # PDF
     group['pdf'] = group['frequency'] / sum(group['frequency'])
@@ -184,19 +183,24 @@ def draw_efficiency_pdf_cdf_until_date(data, test, date='01/01/2000'):
     # CDF
     group['cdf'] = group['pdf'].cumsum()
     group = group.reset_index()
-    group.plot.bar(x='efficiency', y=['pdf', 'cdf'], grid=True,
-                   title='PDF and CDF for Efficiency until ' + str(date.strftime('%Y-%m-%d')))
-
-    # cdf using the normalized efficiency
-    subset['cdf'] = subset[['efficiency_normalized']].rank(
-        method='average', pct=True)
-    # Sort and plot
-    subset.sort_values('efficiency_normalized').plot(x='efficiency_normalized', y='cdf',
-                                                     grid=True, title='CDF for Efficiency until ' + str(date.strftime('%Y-%m-%d')))
+    group.plot.bar(x='pts_attempted', y=['pdf', 'cdf'], grid=True,
+                   title='PDF and CDF for pts_attempted until ' + str(date.strftime('%Y-%m-%d')))
 
 
 def draw_exploratory_data_charts(data, test, chosen_features):
     # A
+    #plot out accuracy per year
+    year = data.apply(lambda row: row['game_date'].year, axis=1)
+
+    accuracy_per_year = []
+
+    for i in range(1996, 2016):
+        numAttempted = len(data[(year == i)])
+        numScored = len(data[(year == i) & (data['shot_made_flag'] == 1)])
+        accuracy_per_year.append(numScored / numAttempted)
+    plt.title('Accuracy by Year')
+    plt.scatter(range(1996,2016), accuracy_per_year);
+
     groups = data[['action_type', 'shot_type', 'shot_made_flag']].groupby(
         ['action_type', 'shot_type'], as_index=False).mean()
 
@@ -310,7 +314,7 @@ def draw_exploratory_data_charts(data, test, chosen_features):
     plt.show()
 
     # D
-    draw_efficiency_pdf_cdf_until_date(data, test, '05/05/1997')
+    draw_pts_attempted_pdf_cdf_until_date(data, test, '05/05/1997')
 
 
 def db_scan(data):
